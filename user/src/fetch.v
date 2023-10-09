@@ -1,80 +1,98 @@
 `timescale 1ns / 1ps
 //*************************************************************************
-//   > ÎÄ¼şÃû: fetch.v
-//   > ÃèÊö  :¶àÖÜÆÚCPUµÄÈ¡Ö¸Ä£¿é
-//   > ×÷Õß  : LOONGSON
-//   > ÈÕÆÚ  : 2016-04-14
+//   > æ–‡ä»¶å: fetch.v
+//   > æè¿°  :äº”çº§æµæ°´CPUçš„å–æŒ‡æ¨¡å—
+//   > ä½œè€…  : LOONGSON
+//   > æ—¥æœŸ  : 2016-04-14
 //*************************************************************************
-`define STARTADDR 32'd0   // ³ÌĞòÆğÊ¼µØÖ·Îª0
-module fetch(                    // È¡Ö¸¼¶
-    input             clk,       // Ê±ÖÓ
-    input             resetn,    // ¸´Î»ĞÅºÅ£¬µÍµçÆ½ÓĞĞ§
-    input             IF_valid,  // È¡Ö¸¼¶ÓĞĞ§ĞÅºÅ
-    input             next_fetch,// È¡ÏÂÒ»ÌõÖ¸Áî£¬ÓÃÀ´Ëø´æPCÖµ
-    input      [31:0] inst,      // inst_romÈ¡³öµÄÖ¸Áî
-    input      [32:0] jbr_bus,   // Ìø×ª×ÜÏß
-    output     [31:0] inst_addr, // ·¢Íùinst_romµÄÈ¡Ö¸µØÖ·
-    output reg        IF_over,   // IFÄ£¿éÖ´ĞĞÍê³É
-    output     [63:0] IF_ID_bus, // IF->ID×ÜÏß
+`define STARTADDR 32'H00000034   // ç¨‹åºèµ·å§‹åœ°å€ä¸º34H
+module fetch(                    // å–æŒ‡çº§
+    input             clk,       // æ—¶é’Ÿ
+    input             resetn,    // å¤ä½ä¿¡å·ï¼Œä½ç”µå¹³æœ‰æ•ˆ
+    input             IF_valid,  // å–æŒ‡çº§æœ‰æ•ˆä¿¡å·
+    input             next_fetch,// å–ä¸‹ä¸€æ¡æŒ‡ä»¤ï¼Œç”¨æ¥é”å­˜PCå€¼
+    input      [31:0] inst,      // inst_romå–å‡ºçš„æŒ‡ä»¤
+    input      [32:0] jbr_bus,   // è·³è½¬æ€»çº¿
+    output     [31:0] inst_addr, // å‘å¾€inst_romçš„å–æŒ‡åœ°å€
+    output reg        IF_over,   // IFæ¨¡å—æ‰§è¡Œå®Œæˆ
+    output     [63:0] IF_ID_bus, // IF->IDæ€»çº¿
     
-    //Õ¹Ê¾PCºÍÈ¡³öµÄÖ¸Áî
+    //5çº§æµæ°´æ–°å¢æ¥å£
+    input      [32:0] exc_bus,   // Exception pcæ€»çº¿
+        
+    //å±•ç¤ºPCå’Œå–å‡ºçš„æŒ‡ä»¤
     output     [31:0] IF_pc,
     output     [31:0] IF_inst
 );
 
-//-----{³ÌĞò¼ÆÊıÆ÷PC}begin
+//-----{ç¨‹åºè®¡æ•°å™¨PC}begin
     wire [31:0] next_pc;
     wire [31:0] seq_pc;
     reg  [31:0] pc;
-    //Ìø×ªpc
+    
+    //è·³è½¬pc
     wire        jbr_taken;
     wire [31:0] jbr_target;
-    assign {jbr_taken, jbr_target} = jbr_bus; //Ìø×ª×ÜÏß
+    assign {jbr_taken, jbr_target} = jbr_bus;  // è·³è½¬æ€»çº¿ä¼ æ˜¯å¦è·³è½¬å’Œç›®æ ‡åœ°å€
     
-    assign seq_pc[31:2]  = pc[31:2] + 1'b1;   //ÏÂÒ»Ö¸ÁîµØÖ·£ºPC=PC+4
-    assign seq_pc[1 :0]  = pc[1:0];
+    //Exception PC
+    wire        exc_valid;
+    wire [31:0] exc_pc;
+    assign {exc_valid,exc_pc} = exc_bus;
+    
+    //pc+4
+    assign seq_pc[31:2]    = pc[31:2] + 1'b1;  // ä¸‹ä¸€æŒ‡ä»¤åœ°å€ï¼šPC=PC+4
+    assign seq_pc[1:0]     = pc[1:0];
 
-    // ĞÂÖ¸Áî£ºÈôÖ¸ÁîÌø×ª£¬ÎªÌø×ªµØÖ·£»·ñÔòÎªÏÂÒ»Ö¸Áî
-    assign next_pc = jbr_taken ? jbr_target : seq_pc; 
-    
-    always @(posedge clk)    // PC³ÌĞò¼ÆÊıÆ÷
+    // æ–°æŒ‡ä»¤ï¼šè‹¥æœ‰Exception,åˆ™PCä¸ºExceptioå…¥å£åœ°å€
+    //         è‹¥æŒ‡ä»¤è·³è½¬ï¼Œåˆ™PCä¸ºè·³è½¬åœ°å€ï¼›å¦åˆ™ä¸ºpc+4
+    assign next_pc = exc_valid ? exc_pc : 
+                     jbr_taken ? jbr_target : seq_pc;
+    always @(posedge clk)    // PCç¨‹åºè®¡æ•°å™¨
     begin
         if (!resetn)
         begin
-            pc <= `STARTADDR; // ¸´Î»£¬È¡³ÌĞòÆğÊ¼µØÖ·
+            pc <= `STARTADDR; // å¤ä½ï¼Œå–ç¨‹åºèµ·å§‹åœ°å€
         end
         else if (next_fetch)
         begin
-            pc <= next_pc;    // ²»¸´Î»£¬È¡ĞÂÖ¸Áî
+            pc <= next_pc;    // ä¸å¤ä½ï¼Œå–æ–°æŒ‡ä»¤
         end
     end
-//-----{³ÌĞò¼ÆÊıÆ÷PC}end
+//-----{ç¨‹åºè®¡æ•°å™¨PC}end
 
-//-----{·¢Íùinst_romµÄÈ¡Ö¸µØÖ·}begin
+//-----{å‘å¾€inst_romçš„å–æŒ‡åœ°å€}begin
     assign inst_addr = pc;
-//-----{·¢Íùinst_romµÄÈ¡Ö¸µØÖ·}end
+//-----{å‘å¾€inst_romçš„å–æŒ‡åœ°å€}end
 
-//-----{IFÖ´ĞĞÍê³É}begin
-    //ÓÉÓÚÖ¸ÁîromÎªÍ¬²½¶ÁĞ´µÄ,
-    //È¡Êı¾İÊ±£¬ÓĞÒ»ÅÄÑÓÊ±
-    //¼´·¢µØÖ·µÄÏÂÒ»ÅÄÊ±ÖÓ²ÅÄÜµÃµ½¶ÔÓ¦µÄÖ¸Áî
-    //¹ÊÈ¡Ö¸Ä£¿éĞèÒªÁ½ÅÄÊ±¼ä
-    //½«IF_validËø´æÒ»ÅÄ¼´ÊÇIF_overĞÅºÅ
-   always @(posedge clk)
+//-----{IFæ‰§è¡Œå®Œæˆ}begin
+    //ç”±äºæŒ‡ä»¤romä¸ºåŒæ­¥è¯»å†™çš„,
+    //å–æ•°æ®æ—¶ï¼Œæœ‰ä¸€æ‹å»¶æ—¶
+    //å³å‘åœ°å€çš„ä¸‹ä¸€æ‹æ—¶é’Ÿæ‰èƒ½å¾—åˆ°å¯¹åº”çš„æŒ‡ä»¤
+    //æ•…å–æŒ‡æ¨¡å—éœ€è¦ä¸¤æ‹æ—¶é—´
+    //æ•…æ¯æ¬¡PCåˆ·æ–°ï¼ŒIF_overéƒ½è¦ç½®0
+    //ç„¶åå°†IF_validé”å­˜ä¸€æ‹å³æ˜¯IF_overä¿¡å·
+    always @(posedge clk)
     begin
-        IF_over <= IF_valid;
+        if (!resetn || next_fetch)
+        begin
+            IF_over <= 1'b0;
+        end
+        else
+        begin
+            IF_over <= IF_valid;
+        end
     end
-    //Èç¹ûÖ¸ÁîromÎªÒì²½¶ÁµÄ£¬ÔòIF_valid¼´ÊÇIF_overĞÅºÅ£¬
-    //¼´È¡Ö¸Ò»ÅÄÍê³É
-//-----{IFÖ´ĞĞÍê³É}end
+    //å¦‚æœæŒ‡ä»¤romä¸ºå¼‚æ­¥è¯»çš„ï¼Œåˆ™IF_validå³æ˜¯IF_overä¿¡å·ï¼Œ
+    //å³å–æŒ‡ä¸€æ‹å®Œæˆ
+//-----{IFæ‰§è¡Œå®Œæˆ}end
 
-//-----{IF->ID×ÜÏß}begin
-    assign IF_ID_bus = {pc, inst};
-//-----{IF->ID×ÜÏß}end
+//-----{IF->IDæ€»çº¿}begin
+    assign IF_ID_bus = {pc, inst};  // å–æŒ‡çº§æœ‰æ•ˆæ—¶ï¼Œé”å­˜PCå’ŒæŒ‡ä»¤
+//-----{IF->IDæ€»çº¿}end
 
-//-----{Õ¹Ê¾IFÄ£¿éµÄPCÖµºÍÖ¸Áî}begin
+//-----{å±•ç¤ºIFæ¨¡å—çš„PCå€¼å’ŒæŒ‡ä»¤}begin
     assign IF_pc   = pc;
     assign IF_inst = inst;
-//-----{Õ¹Ê¾IFÄ£¿éµÄPCÖµºÍÖ¸Áî}end
+//-----{å±•ç¤ºIFæ¨¡å—çš„PCå€¼å’ŒæŒ‡ä»¤}end
 endmodule
-

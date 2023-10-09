@@ -1,67 +1,91 @@
 `timescale 1ns / 1ps
 //*************************************************************************
-//   > ÎÄ¼şÃû: mem.v
-//   > ÃèÊö  :¶àÖÜÆÚCPUµÄ·Ã´æÄ£¿é
-//   > ×÷Õß  : LOONGSON
-//   > ÈÕÆÚ  : 2016-04-14
+//   > æ–‡ä»¶å: mem.v
+//   > æè¿°  :äº”çº§æµæ°´CPUçš„è®¿å­˜æ¨¡å—
+//   > ä½œè€…  : LOONGSON
+//   > æ—¥æœŸ  : 2016-04-14
 //*************************************************************************
-module mem(                          // ·Ã´æ¼¶
-    input              clk,          // Ê±ÖÓ
-    input              MEM_valid,    // ·Ã´æ¼¶ÓĞĞ§ĞÅºÅ
-    input      [105:0] EXE_MEM_bus_r,// EXE->MEM×ÜÏß
-    input      [ 31:0] dm_rdata,     // ·Ã´æ¶ÁÊı¾İ
-    output     [ 31:0] dm_addr,      // ·Ã´æ¶ÁĞ´µØÖ·
-    output reg [  3:0] dm_wen,       // ·Ã´æĞ´Ê¹ÄÜ
-    output reg [ 31:0] dm_wdata,     // ·Ã´æĞ´Êı¾İ
-    output             MEM_over,     // MEMÄ£¿éÖ´ĞĞÍê³É
-    output    [ 69:0] MEM_WB_bus,   // MEM->WB×ÜÏß
+module mem(                          // è®¿å­˜çº§
+    input              clk,          // æ—¶é’Ÿ
+    input              MEM_valid,    // è®¿å­˜çº§æœ‰æ•ˆä¿¡å·
+    input      [153:0] EXE_MEM_bus_r,// EXE->MEMæ€»çº¿
+    input      [ 31:0] dm_rdata,     // è®¿å­˜è¯»æ•°æ®
+    output     [ 31:0] dm_addr,      // è®¿å­˜è¯»å†™åœ°å€
+    output reg [  3:0] dm_wen,       // è®¿å­˜å†™ä½¿èƒ½
+    output reg [ 31:0] dm_wdata,     // è®¿å­˜å†™æ•°æ®
+    output             MEM_over,     // MEMæ¨¡å—æ‰§è¡Œå®Œæˆ
+    output     [117:0] MEM_WB_bus,   // MEM->WBæ€»çº¿
     
-    //Õ¹Ê¾PC
+    //5çº§æµæ°´æ–°å¢æ¥å£
+    input              MEM_allow_in, // MEMçº§å…è®¸ä¸‹çº§è¿›å…¥
+    output     [  4:0] MEM_wdest,    // MEMçº§è¦å†™å›å¯„å­˜å™¨å †çš„ç›®æ ‡åœ°å€å·
+     
+    //å±•ç¤ºPC
     output     [ 31:0] MEM_pc
 );
-//-----{EXE->MEM×ÜÏß}begin
-    //·Ã´æĞèÒªÓÃµ½µÄload/storeĞÅÏ¢
-    wire [3 :0] mem_control;  //MEMĞèÒªÊ¹ÓÃµÄ¿ØÖÆĞÅºÅ
-    wire [31:0] store_data;   //store²Ù×÷µÄ´æµÄÊı¾İ
+//-----{EXE->MEMæ€»çº¿}begin
+    //è®¿å­˜éœ€è¦ç”¨åˆ°çš„load/storeä¿¡æ¯
+    wire [3 :0] mem_control;  //MEMéœ€è¦ä½¿ç”¨çš„æ§åˆ¶ä¿¡å·
+    wire [31:0] store_data;   //storeæ“ä½œçš„å­˜çš„æ•°æ®
     
-    //aluÔËËã½á¹û
-    wire [31:0] alu_result;
+    //EXEç»“æœå’ŒHI/LOæ•°æ®
+    wire [31:0] exe_result;
+    wire [31:0] lo_result;
+    wire        hi_write;
+    wire        lo_write;
     
-    //Ğ´»ØĞèÒªÓÃµ½µÄĞÅÏ¢
-    wire       rf_wen;    //Ğ´»ØµÄ¼Ä´æÆ÷Ğ´Ê¹ÄÜ
-    wire [4:0] rf_wdest;  //Ğ´»ØµÄÄ¿µÄ¼Ä´æÆ÷
+    //å†™å›éœ€è¦ç”¨åˆ°çš„ä¿¡æ¯
+    wire mfhi;
+    wire mflo;
+    wire mtc0;
+    wire mfc0;
+    wire [7 :0] cp0r_addr;
+    wire       syscall;   //syscallå’Œeretåœ¨å†™å›çº§æœ‰ç‰¹æ®Šçš„æ“ä½œ 
+    wire       eret;
+    wire       rf_wen;    //å†™å›çš„å¯„å­˜å™¨å†™ä½¿èƒ½
+    wire [4:0] rf_wdest;  //å†™å›çš„ç›®çš„å¯„å­˜å™¨
     
     //pc
     wire [31:0] pc;    
     assign {mem_control,
             store_data,
-            alu_result,
+            exe_result,
+            lo_result,
+            hi_write,
+            lo_write,
+            mfhi,
+            mflo,
+            mtc0,
+            mfc0,
+            cp0r_addr,
+            syscall,
+            eret,
             rf_wen,
             rf_wdest,
             pc         } = EXE_MEM_bus_r;  
-//-----{EXE->MEM×ÜÏß}end
+//-----{EXE->MEMæ€»çº¿}end
 
-//-----{load/store·Ã´æ}begin
-    wire inst_load;  //load²Ù×÷
-    wire inst_store; //store²Ù×÷
-    wire ls_word;    //load/storeÎª×Ö½Ú»¹ÊÇ×Ö,0:byte;1:word
-    wire lb_sign;    //loadÒ»×Ö½ÚÎªÓĞ·ûºÅload
+//-----{load/storeè®¿å­˜}begin
+    wire inst_load;  //loadæ“ä½œ
+    wire inst_store; //storeæ“ä½œ
+    wire ls_word;    //load/storeä¸ºå­—èŠ‚è¿˜æ˜¯å­—,0:byte;1:word
+    wire lb_sign;    //loadä¸€å­—èŠ‚ä¸ºæœ‰ç¬¦å·load
     assign {inst_load,inst_store,ls_word,lb_sign} = mem_control;
 
-    //·Ã´æ¶ÁĞ´µØÖ·
-    assign dm_addr = alu_result;
+    //è®¿å­˜è¯»å†™åœ°å€
+    assign dm_addr = exe_result;
     
-    //store²Ù×÷µÄĞ´Ê¹ÄÜ
-    always @ (*)    // ÄÚ´æĞ´Ê¹ÄÜĞÅºÅ
+    //storeæ“ä½œçš„å†™ä½¿èƒ½
+    always @ (*)    // å†…å­˜å†™ä½¿èƒ½ä¿¡å·
     begin
-        if (MEM_valid && inst_store) // ·Ã´æ¼¶ÓĞĞ§Ê±,ÇÒÎªstore²Ù×÷
+        if (MEM_valid && inst_store) // è®¿å­˜çº§æœ‰æ•ˆæ—¶,ä¸”ä¸ºstoreæ“ä½œ
         begin
             if (ls_word)
             begin
-                dm_wen <= 4'b1111; // ´æ´¢×ÖÖ¸Áî£¬Ğ´Ê¹ÄÜÈ«1
+                dm_wen <= 4'b1111; // å­˜å‚¨å­—æŒ‡ä»¤ï¼Œå†™ä½¿èƒ½å…¨1
             end
             else
-            begin // SBÖ¸Áî£¬ĞèÒªÒÀ¾İµØÖ·µ×Á½Î»£¬È·¶¨¶ÔÓ¦µÄĞ´Ê¹ÄÜ
+            begin // SBæŒ‡ä»¤ï¼Œéœ€è¦ä¾æ®åœ°å€åº•ä¸¤ä½ï¼Œç¡®å®šå¯¹åº”çš„å†™ä½¿èƒ½
                 case (dm_addr[1:0])
                     2'b00   : dm_wen <= 4'b0001;
                     2'b01   : dm_wen <= 4'b0010;
@@ -77,8 +101,8 @@ module mem(                          // ·Ã´æ¼¶
         end
     end 
     
-    //store²Ù×÷µÄĞ´Êı¾İ
-    always @ (*)  // ¶ÔÓÚSBÖ¸Áî£¬ĞèÒªÒÀ¾İµØÖ·µ×Á½Î»£¬ÒÆ¶¯storeµÄ×Ö½ÚÖÁ¶ÔÓ¦Î»ÖÃ
+    //storeæ“ä½œçš„å†™æ•°æ®
+    always @ (*)  // å¯¹äºSBæŒ‡ä»¤ï¼Œéœ€è¦ä¾æ®åœ°å€åº•ä¸¤ä½ï¼Œç§»åŠ¨storeçš„å­—èŠ‚è‡³å¯¹åº”ä½ç½®
     begin
         case (dm_addr[1:0])
             2'b00   : dm_wdata <= store_data;
@@ -89,47 +113,62 @@ module mem(                          // ·Ã´æ¼¶
         endcase
     end
     
-     //load¶Á³öµÄÊı¾İ
+     //loadè¯»å‡ºçš„æ•°æ®
      wire        load_sign;
      wire [31:0] load_result;
-     assign load_sign = (dm_addr[1:0]==2'd0) ? dm_rdata[ 7] :
-                        (dm_addr[1:0]==2'd1) ? dm_rdata[15] :
-                        (dm_addr[1:0]==2'd2) ? dm_rdata[23] : dm_rdata[31] ;
+    assign load_sign = (dm_addr[1:0]==2'd0) ? dm_rdata[ 7] :
+                       (dm_addr[1:0]==2'd1) ? dm_rdata[15] :
+                       (dm_addr[1:0]==2'd2) ? dm_rdata[23] : dm_rdata[31] ;
      assign load_result[7:0] = (dm_addr[1:0]==2'd0) ? dm_rdata[ 7:0 ] :
                                (dm_addr[1:0]==2'd1) ? dm_rdata[15:8 ] :
                                (dm_addr[1:0]==2'd2) ? dm_rdata[23:16] :
                                                       dm_rdata[31:24] ;
-     assign load_result[31:8]= ls_word ? dm_rdata[31:8] :
-                                         {24{lb_sign & load_sign}};
-//-----{load/store·Ã´æ}end
+     assign load_result[31:8]= ls_word ? dm_rdata[31:8] : {24{lb_sign & load_sign}};
+//-----{load/storeè®¿å­˜}end
 
-//-----{MEMÖ´ĞĞÍê³É}begin
-    //ÓÉÓÚÊı¾İRAMÎªÍ¬²½¶ÁĞ´µÄ,
-    //¹Ê¶ÔloadÖ¸Áî£¬È¡Êı¾İÊ±£¬ÓĞÒ»ÅÄÑÓÊ±
-    //¼´·¢µØÖ·µÄÏÂÒ»ÅÄÊ±ÖÓ²ÅÄÜµÃµ½loadµÄÊı¾İ
-    //¹ÊmemÔÚ½øĞĞload²Ù×÷Ê±ÓĞĞèÒªÁ½ÅÄÊ±¼ä²ÅÄÜÈ¡µ½Êı¾İ
-    //¶ø¶ÔÆäËû²Ù×÷£¬ÔòÖ»ĞèÒªÒ»ÅÄÊ±¼ä
+//-----{MEMæ‰§è¡Œå®Œæˆ}begin
+    //ç”±äºæ•°æ®RAMä¸ºåŒæ­¥è¯»å†™çš„,
+    //æ•…å¯¹loadæŒ‡ä»¤ï¼Œå–æ•°æ®æ—¶ï¼Œæœ‰ä¸€æ‹å»¶æ—¶
+    //å³å‘åœ°å€çš„ä¸‹ä¸€æ‹æ—¶é’Ÿæ‰èƒ½å¾—åˆ°loadçš„æ•°æ®
+    //æ•…memåœ¨è¿›è¡Œloadæ“ä½œæ—¶æœ‰éœ€è¦ä¸¤æ‹æ—¶é—´æ‰èƒ½å–åˆ°æ•°æ®
+    //è€Œå¯¹å…¶ä»–æ“ä½œï¼Œåˆ™åªéœ€è¦ä¸€æ‹æ—¶é—´
     reg MEM_valid_r;
-   always @(posedge clk)
+    always @(posedge clk)
     begin
-        MEM_valid_r <= MEM_valid;
+        if (MEM_allow_in)
+        begin
+            MEM_valid_r <= 1'b0;
+        end
+        else
+        begin
+            MEM_valid_r <= MEM_valid;
+        end
     end
-    assign MEM_over = inst_load ? MEM_valid_r :MEM_valid;
-    //Èç¹ûÊı¾İramÎªÒì²½¶ÁµÄ£¬ÔòMEM_valid¼´ÊÇMEM_overĞÅºÅ£¬
-    //¼´loadÒ»ÅÄÍê³É
-//-----{MEMÖ´ĞĞÍê³É}end
+    assign MEM_over = inst_load ? MEM_valid_r : MEM_valid;
+    //å¦‚æœæ•°æ®ramä¸ºå¼‚æ­¥è¯»çš„ï¼Œåˆ™MEM_validå³æ˜¯MEM_overä¿¡å·ï¼Œ
+    //å³loadä¸€æ‹å®Œæˆ
+//-----{MEMæ‰§è¡Œå®Œæˆ}end
 
-//-----{MEM->WB×ÜÏß}begin
-    wire [31:0] mem_result; //MEM´«µ½WBµÄresultÎªload½á¹û»òALU½á¹û
-    assign mem_result = inst_load ? load_result : alu_result;
+//-----{MEMæ¨¡å—çš„destå€¼}begin
+   //åªæœ‰åœ¨MEMæ¨¡å—æœ‰æ•ˆæ—¶ï¼Œå…¶å†™å›ç›®çš„å¯„å­˜å™¨å·æ‰æœ‰æ„ä¹‰
+    assign MEM_wdest = rf_wdest & {5{MEM_valid}};
+//-----{MEMæ¨¡å—çš„destå€¼}end
+
+//-----{MEM->WBæ€»çº¿}begin
+    wire [31:0] mem_result; //MEMä¼ åˆ°WBçš„resultä¸ºloadç»“æœæˆ–EXEç»“æœ
+    assign mem_result = inst_load ? load_result : exe_result;
     
-    assign MEM_WB_bus = {rf_wen,rf_wdest, // WBĞèÒªÊ¹ÓÃµÄĞÅºÅ
-                         mem_result,      // ×îÖÕÒªĞ´»Ø¼Ä´æÆ÷µÄÊı¾İ
-                         pc};             // PCÖµ
-//-----{MEM->WB×ÜÏß}begin
+    assign MEM_WB_bus = {rf_wen,rf_wdest,                   // WBéœ€è¦ä½¿ç”¨çš„ä¿¡å·
+                         mem_result,                        // æœ€ç»ˆè¦å†™å›å¯„å­˜å™¨çš„æ•°æ®
+                         lo_result,                         // ä¹˜æ³•ä½32ä½ç»“æœï¼Œæ–°å¢
+                         hi_write,lo_write,                 // HI/LOå†™ä½¿èƒ½ï¼Œæ–°å¢
+                         mfhi,mflo,                         // WBéœ€è¦ä½¿ç”¨çš„ä¿¡å·,æ–°å¢
+                         mtc0,mfc0,cp0r_addr,syscall,eret,  // WBéœ€è¦ä½¿ç”¨çš„ä¿¡å·,æ–°å¢
+                         pc};                               // PCå€¼
+//-----{MEM->WBæ€»çº¿}begin
 
-//-----{Õ¹Ê¾MEMÄ£¿éµÄPCÖµ}begin
+//-----{å±•ç¤ºMEMæ¨¡å—çš„PCå€¼}begin
     assign MEM_pc = pc;
-//-----{Õ¹Ê¾MEMÄ£¿éµÄPCÖµ}end
+//-----{å±•ç¤ºMEMæ¨¡å—çš„PCå€¼}end
 endmodule
 

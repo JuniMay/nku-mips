@@ -4,15 +4,15 @@
 // Company: 
 // Engineer:
 //
-// Create Date:   11:13:38 04/23/2016
-// Design Name:   multi_cycle_cpu
-// Module Name:   F:/new_lab/7_multi_cycle_cpu/tb.v
-// Project Name:  multi_cycle_cpu
+// Create Date:   11:57:16 04/23/2016
+// Design Name:   pipeline_cpu
+// Module Name:   F:/new_lab/8_pipeline_cpu/tb.v
+// Project Name:  pipeline_cpu
 // Target Device:  
 // Tool versions:  
 // Description: 
 //
-// Verilog Test Fixture created by ISE for module: multi_cycle_cpu
+// Verilog Test Fixture created by ISE for module: pipeline_cpu
 //
 // Dependencies:
 // 
@@ -39,10 +39,10 @@ module tb;
     wire [31:0] EXE_pc;
     wire [31:0] MEM_pc;
     wire [31:0] WB_pc;
-    wire [31:0] display_state;
+    wire [31:0] cpu_5_valid;
 
     // Instantiate the Unit Under Test (UUT)
-    multi_cycle_cpu uut (
+    pipeline_cpu uut (
         .clk(clk), 
         .resetn(resetn), 
         .rf_addr(rf_addr), 
@@ -55,7 +55,7 @@ module tb;
         .EXE_pc(EXE_pc), 
         .MEM_pc(MEM_pc), 
         .WB_pc(WB_pc), 
-        .display_state(display_state)
+        .cpu_5_valid(cpu_5_valid)
     );
 
     initial begin

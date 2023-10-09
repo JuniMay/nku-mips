@@ -1,73 +1,132 @@
 `timescale 1ns / 1ps
 //*************************************************************************
-//   > ÎÄ¼şÃû: exe.v
-//   > ÃèÊö  :¶àÖÜÆÚCPUµÄÖ´ĞĞÄ£¿é
-//   > ×÷Õß  : LOONGSON
-//   > ÈÕÆÚ  : 2016-04-14
+//   > æ–‡ä»¶å: exe.v
+//   > æè¿°  :äº”çº§æµæ°´CPUçš„æ‰§è¡Œæ¨¡å—
+//   > ä½œè€…  : LOONGSON
+//   > æ—¥æœŸ  : 2016-04-14
 //*************************************************************************
-module exe(                         // Ö´ĞĞ¼¶
-    input              EXE_valid,   // Ö´ĞĞ¼¶ÓĞĞ§ĞÅºÅ
-    input      [149:0] ID_EXE_bus_r,// ID->EXE×ÜÏß
-    output             EXE_over,    // EXEÄ£¿éÖ´ĞĞÍê³É
-    output     [105:0] EXE_MEM_bus, // EXE->MEM×ÜÏß
+module exe(                         // æ‰§è¡Œçº§
+    input              EXE_valid,   // æ‰§è¡Œçº§æœ‰æ•ˆä¿¡å·
+    input      [166:0] ID_EXE_bus_r,// ID->EXEæ€»çº¿
+    output             EXE_over,    // EXEæ¨¡å—æ‰§è¡Œå®Œæˆ
+    output     [153:0] EXE_MEM_bus, // EXE->MEMæ€»çº¿
     
-    //Õ¹Ê¾PC
+     //5çº§æµæ°´æ–°å¢
+     input             clk,       // æ—¶é’Ÿ
+     output     [  4:0] EXE_wdest,   // EXEçº§è¦å†™å›å¯„å­˜å™¨å †çš„ç›®æ ‡åœ°å€å·
+ 
+    //å±•ç¤ºPC
     output     [ 31:0] EXE_pc
 );
-//-----{ID->EXE×ÜÏß}begin
-    //EXEĞèÒªÓÃµ½µÄĞÅÏ¢
-    //ALUÁ½¸öÔ´²Ù×÷ÊıºÍ¿ØÖÆĞÅºÅ
+//-----{ID->EXEæ€»çº¿}begin
+    //EXEéœ€è¦ç”¨åˆ°çš„ä¿¡æ¯
+    wire multiply;            //ä¹˜æ³•
+    wire mthi;             //MTHI
+    wire mtlo;             //MTLO
     wire [11:0] alu_control;
     wire [31:0] alu_operand1;
     wire [31:0] alu_operand2;
 
-    //·Ã´æĞèÒªÓÃµ½µÄload/storeĞÅÏ¢
-    wire [3:0] mem_control;  //MEMĞèÒªÊ¹ÓÃµÄ¿ØÖÆĞÅºÅ
-    wire [31:0] store_data;  //store²Ù×÷µÄ´æµÄÊı¾İ
+    //è®¿å­˜éœ€è¦ç”¨åˆ°çš„load/storeä¿¡æ¯
+    wire [3:0] mem_control;  //MEMéœ€è¦ä½¿ç”¨çš„æ§åˆ¶ä¿¡å·
+    wire [31:0] store_data;  //storeæ“ä½œçš„å­˜çš„æ•°æ®
                           
-    //Ğ´»ØĞèÒªÓÃµ½µÄĞÅÏ¢
-    wire       rf_wen;    //Ğ´»ØµÄ¼Ä´æÆ÷Ğ´Ê¹ÄÜ
-    wire [4:0] rf_wdest;  //Ğ´»ØµÄÄ¿µÄ¼Ä´æÆ÷
+    //å†™å›éœ€è¦ç”¨åˆ°çš„ä¿¡æ¯
+    wire mfhi;
+    wire mflo;
+    wire mtc0;
+    wire mfc0;
+    wire [7 :0] cp0r_addr;
+    wire       syscall;   //syscallå’Œeretåœ¨å†™å›çº§æœ‰ç‰¹æ®Šçš„æ“ä½œ 
+    wire       eret;
+    wire       rf_wen;    //å†™å›çš„å¯„å­˜å™¨å†™ä½¿èƒ½
+    wire [4:0] rf_wdest;  //å†™å›çš„ç›®çš„å¯„å­˜å™¨
     
     //pc
     wire [31:0] pc;
-    assign {alu_control,
+    assign {multiply,
+            mthi,
+            mtlo,
+            alu_control,
             alu_operand1,
             alu_operand2,
             mem_control,
             store_data,
+            mfhi,
+            mflo,
+            mtc0,
+            mfc0,
+            cp0r_addr,
+            syscall,
+            eret,
             rf_wen,
             rf_wdest,
             pc          } = ID_EXE_bus_r;
-//-----{ID->EXE×ÜÏß}end
+//-----{ID->EXEæ€»çº¿}end
 
 //-----{ALU}begin
     wire [31:0] alu_result;
 
     alu alu_module(
-        .alu_control  (alu_control ),  // I, 12, ALU¿ØÖÆĞÅºÅ
-        .alu_src1     (alu_operand1),  // I, 32, ALU²Ù×÷Êı1
-        .alu_src2     (alu_operand2),  // I, 32, ALU²Ù×÷Êı2
-        .alu_result   (alu_result  )   // O, 32, ALU½á¹û
+        .alu_control  (alu_control ),  // I, 12, ALUæ§åˆ¶ä¿¡å·
+        .alu_src1     (alu_operand1),  // I, 32, ALUæ“ä½œæ•°1
+        .alu_src2     (alu_operand2),  // I, 32, ALUæ“ä½œæ•°2
+        .alu_result   (alu_result  )   // O, 32, ALUç»“æœ
     );
 //-----{ALU}end
 
-//-----{EXEÖ´ĞĞÍê³É}begin
-    //ÓÉÓÚÊÇ¶àÖÜÆÚµÄ£¬²»´æÔÚÊı¾İÏà¹Ø
-    //ÇÒËùÓĞALUÔËËã¶¼¿ÉÔÚÒ»ÅÄÄÚÍê³É
-    //¹ÊEXEÄ£¿éÒ»ÅÄ¾ÍÄÜÍê³ÉËùÓĞ²Ù×÷
-    //¹ÊEXE_valid¼´ÊÇEXE_overĞÅºÅ
-    assign EXE_over = EXE_valid;
-//-----{EXEÖ´ĞĞÍê³É}end
+//-----{ä¹˜æ³•å™¨}begin
+    wire        mult_begin; 
+    wire [63:0] product; 
+    wire        mult_end;
+    
+    assign mult_begin = multiply & EXE_valid;
+    multiply multiply_module (
+        .clk       (clk       ),
+        .mult_begin(mult_begin  ),
+        .mult_op1  (alu_operand1), 
+        .mult_op2  (alu_operand2),
+        .product   (product   ),
+        .mult_end  (mult_end  )
+    );
+//-----{ä¹˜æ³•å™¨}end
 
-//-----{EXE->MEM×ÜÏß}begin
-    assign EXE_MEM_bus = {mem_control,store_data,   //load/storeĞÅÏ¢ºÍstoreÊı¾İ
-                          alu_result,               //aluÔËËã½á¹û
-                          rf_wen,rf_wdest,          // WBĞèÒªÊ¹ÓÃµÄĞÅºÅ
-                          pc};                      // PC
-//-----{EXE->MEM×ÜÏß}end
+//-----{EXEæ‰§è¡Œå®Œæˆ}begin
+    //å¯¹äºALUæ“ä½œï¼Œéƒ½æ˜¯1æ‹å¯å®Œæˆï¼Œ
+    //ä½†å¯¹äºä¹˜æ³•æ“ä½œï¼Œéœ€è¦å¤šæ‹å®Œæˆ
+    assign EXE_over = EXE_valid & (~multiply | mult_end);
+//-----{EXEæ‰§è¡Œå®Œæˆ}end
 
-//-----{Õ¹Ê¾EXEÄ£¿éµÄPCÖµ}begin
+//-----{EXEæ¨¡å—çš„destå€¼}begin
+   //åªæœ‰åœ¨EXEæ¨¡å—æœ‰æ•ˆæ—¶ï¼Œå…¶å†™å›ç›®çš„å¯„å­˜å™¨å·æ‰æœ‰æ„ä¹‰
+    assign EXE_wdest = rf_wdest & {5{EXE_valid}};
+//-----{EXEæ¨¡å—çš„destå€¼}end
+
+//-----{EXE->MEMæ€»çº¿}begin
+    wire [31:0] exe_result;   //åœ¨exeçº§èƒ½ç¡®å®šçš„æœ€ç»ˆå†™å›ç»“æœ
+    wire [31:0] lo_result;
+    wire        hi_write;
+    wire        lo_write;
+    //è¦å†™å…¥HIçš„å€¼æ”¾åœ¨exe_resulté‡Œï¼ŒåŒ…æ‹¬MULTå’ŒMTHIæŒ‡ä»¤,
+    //è¦å†™å…¥LOçš„å€¼æ”¾åœ¨lo_resulté‡Œï¼ŒåŒ…æ‹¬MULTå’ŒMTLOæŒ‡ä»¤,
+    assign exe_result = mthi     ? alu_operand1 :
+                        mtc0     ? alu_operand2 : 
+                        multiply ? product[63:32] : alu_result;
+    assign lo_result  = mtlo ? alu_operand1 : product[31:0];
+    assign hi_write   = multiply | mthi;
+    assign lo_write   = multiply | mtlo;
+    
+    assign EXE_MEM_bus = {mem_control,store_data,          //load/storeä¿¡æ¯å’Œstoreæ•°æ®
+                          exe_result,                      //exeè¿ç®—ç»“æœ
+                          lo_result,                       //ä¹˜æ³•ä½32ä½ç»“æœï¼Œæ–°å¢
+                          hi_write,lo_write,               //HI/LOå†™ä½¿èƒ½ï¼Œæ–°å¢
+                          mfhi,mflo,                       //WBéœ€ç”¨çš„ä¿¡å·,æ–°å¢
+                          mtc0,mfc0,cp0r_addr,syscall,eret,//WBéœ€ç”¨çš„ä¿¡å·,æ–°å¢
+                          rf_wen,rf_wdest,                 //WBéœ€ç”¨çš„ä¿¡å·
+                          pc};                             //PC
+//-----{EXE->MEMæ€»çº¿}end
+
+//-----{å±•ç¤ºEXEæ¨¡å—çš„PCå€¼}begin
     assign EXE_pc = pc;
-//-----{Õ¹Ê¾EXEÄ£¿éµÄPCÖµ}end
+//-----{å±•ç¤ºEXEæ¨¡å—çš„PCå€¼}end
 endmodule
