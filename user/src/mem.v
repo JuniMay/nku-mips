@@ -132,12 +132,19 @@ module mem(                          // 访存级
     //即发地址的下一拍时钟才能得到load的数据
     //故mem在进行load操作时有需要两拍时间才能取到数据
     //而对其他操作，则只需要一拍时间
+
+    reg delayed;
     reg MEM_valid_r;
     always @(posedge clk)
     begin
         if (MEM_allow_in)
         begin
             MEM_valid_r <= 1'b0;
+            delayed <= 1'b0;
+        end
+        else if (!delayed) 
+        begin
+            delayed <= 1'b1;
         end
         else
         begin

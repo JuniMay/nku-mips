@@ -72,11 +72,18 @@ module fetch(                    // 取指级
     //故取指模块需要两拍时间
     //故每次PC刷新，IF_over都要置0
     //然后将IF_valid锁存一拍即是IF_over信号
+    reg delayed;
+
     always @(posedge clk)
     begin
         if (!resetn || next_fetch)
         begin
             IF_over <= 1'b0;
+            delayed <= 1'b0;
+        end
+        else if (!delayed)
+        begin
+            delayed <= 1'b1;
         end
         else
         begin
