@@ -15,7 +15,7 @@ module decode(                      // 译码级
     output     [ 32:0] jbr_bus,     // 跳转总线
 //  output             inst_jbr,    // 指令为跳转分支指令,五级流水不需要
     output             ID_over,     // ID模块执行完成
-    output     [166:0] ID_EXE_bus,  // ID->EXE总线
+    output     [168:0] ID_EXE_bus,  // ID->EXE总线
     
     //5级流水新增
      input              IF_over,     //对于分支指令，需要该信号
@@ -64,6 +64,7 @@ module decode(                      // 译码级
     wire inst_BLTZ, inst_LB   , inst_LBU , inst_SB;
     wire inst_ANDI, inst_ORI  , inst_XORI, inst_JAL;
     wire inst_MULT, inst_MFLO , inst_MFHI, inst_MTLO;
+    wire inst_DIV, inst_DIVU;
     wire inst_MTHI, inst_MFC0 , inst_MTC0;
     wire inst_ERET, inst_SYSCALL;
     wire op_zero;  // 操作码全0
@@ -90,6 +91,10 @@ module decode(                      // 译码级
     assign inst_SRLV  = op_zero & sa_zero    & (funct == 6'b000110);//变量逻辑右移
     assign inst_MULT  = op_zero & (rd==5'd0)
                       & sa_zero & (funct == 6'b011000);             //乘法
+
+    assign inst_DIV   = op_zero & (rd == 5'd0) & sa_zero & (funct == 6'b011010); //除法
+    assign inst_DIVU  = op_zero & (rd == 5'd0) & sa_zero & (funct == 6'b011011); //无符号除法
+    
     assign inst_MFLO  = op_zero & (rs==5'd0) & (rt==5'd0)
                       & sa_zero & (funct == 6'b010010);             //从LO读取
     assign inst_MFHI  = op_zero & (rs==5'd0) & (rt==5'd0)
@@ -258,6 +263,8 @@ module decode(                      // 译码级
     wire mthi;             //MTHI
     wire mtlo;             //MTLO
     assign multiply = inst_MULT;
+    assign divide   = inst_DIV | inst_DIVU;
+    assign divide_sign = inst_DIV;
     assign mthi     = inst_MTHI;
     assign mtlo     = inst_MTLO;
     //ALU两个源操作数和控制信号
@@ -319,6 +326,7 @@ module decode(                      // 译码级
                       inst_wdest_rd ? rd : 5'd0;
     assign store_data = rt_value;
     assign ID_EXE_bus = {multiply,mthi,mtlo,                   //EXE需用的信息,新增
+                         divide, divide_sign,
                          alu_control,alu_operand1,alu_operand2,//EXE需用的信息
                          mem_control,store_data,               //MEM需用的信号
                          mfhi,mflo,                            //WB需用的信号,新增

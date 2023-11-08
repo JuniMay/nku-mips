@@ -7,7 +7,7 @@
 //*************************************************************************
 module exe(                         // 执行级
     input              EXE_valid,   // 执行级有效信号
-    input      [166:0] ID_EXE_bus_r,// ID->EXE总线
+    input      [168:0] ID_EXE_bus_r,// ID->EXE总线
     output             EXE_over,    // EXE模块执行完成
     output     [153:0] EXE_MEM_bus, // EXE->MEM总线
     
@@ -23,6 +23,8 @@ module exe(                         // 执行级
     wire multiply;            //乘法
     wire mthi;             //MTHI
     wire mtlo;             //MTLO
+    wire divide;
+    wire divide_sign;
     wire [11:0] alu_control;
     wire [31:0] alu_operand1;
     wire [31:0] alu_operand2;
@@ -47,6 +49,8 @@ module exe(                         // 执行级
     assign {multiply,
             mthi,
             mtlo,
+            divide,
+            divide_sign,
             alu_control,
             alu_operand1,
             alu_operand2,
@@ -91,10 +95,30 @@ module exe(                         // 执行级
     );
 //-----{乘法器}end
 
+    // Divisor
+    wire div_start;
+    wire [31:0] div_quotient;
+    wire [31:0] div_remainder;
+    wire div_done;
+
+    assign div_start = divide & EXE_valid;
+    
+    divider u_divider(
+        .clk        	( clk           ),
+        .start      	( div_start     ),
+        .signed_div 	( divide_sign   ),
+        .dividend   	( alu_operand1  ),
+        .divisor    	( alu_operand2  ),
+        .done       	( div_done      ),
+        .quotient   	( div_quotient  ),
+        .remainder  	( div_remainder )
+    );
+    
+
 //-----{EXE执行完成}begin
     //对于ALU操作，都是1拍可完成，
     //但对于乘法操作，需要多拍完成
-    assign EXE_over = EXE_valid & (~multiply | mult_end);
+    assign EXE_over = EXE_valid & (~multiply | mult_end) & (~divide | div_done);
 //-----{EXE执行完成}end
 
 //-----{EXE模块的dest值}begin
@@ -111,10 +135,12 @@ module exe(                         // 执行级
     //要写入LO的值放在lo_result里，包括MULT和MTLO指令,
     assign exe_result = mthi     ? alu_operand1 :
                         mtc0     ? alu_operand2 : 
-                        multiply ? product[63:32] : alu_result;
-    assign lo_result  = mtlo ? alu_operand1 : product[31:0];
-    assign hi_write   = multiply | mthi;
-    assign lo_write   = multiply | mtlo;
+                        multiply ? product[63:32] :
+                        divide   ? div_remainder : alu_result;
+    assign lo_result  = mtlo ? alu_operand1 : 
+                        multiply ? product[31:0] : div_quotient;
+    assign hi_write   = multiply | mthi | divide;
+    assign lo_write   = multiply | mtlo | divide;
     
     assign EXE_MEM_bus = {mem_control,store_data,          //load/store信息和store数据
                           exe_result,                      //exe运算结果

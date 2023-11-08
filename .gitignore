@@ -1,3 +1,5 @@
 prj/xilinx/*/
 .vscode/
 .DS_Store
+*.vcd
+*.vvp
