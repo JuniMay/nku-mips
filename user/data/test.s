@@ -9,5 +9,5 @@ main:
     div $7, $6
     mflo $8
     mfhi $9
-    j 0x34
+    j 0xd
     
