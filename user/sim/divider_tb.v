@@ -23,15 +23,13 @@ module divider_tb;
                 .remainder(remainder)
             );
 
-    initial
-    begin
+    initial begin
         clk = 0;
         forever
             #10 clk = ~clk;
     end
 
-    initial
-    begin
+    initial begin
         $dumpfile("divider_tb.vcd");
         $dumpvars(0, divider_tb);
 

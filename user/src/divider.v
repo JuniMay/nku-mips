@@ -19,8 +19,7 @@ module divider(
     reg [31:0] dividend_abs;
     reg [31:0] divisor_abs;
 
-    always @(*)
-    begin
+    always @(*) begin
         dividend_abs = (dividend[31] && signed_div) ? ((~dividend) + 1) : dividend;
         divisor_abs = (divisor[31] && signed_div) ? ((~divisor) + 1) : divisor;
 
@@ -45,8 +44,7 @@ module divider(
 
     reg set_bit;
 
-    initial
-    begin
+    initial begin
         state = IDLE;
         counter = 0;
         set_bit = 0;
@@ -55,53 +53,42 @@ module divider(
 
     assign done = (state == FINISH);
 
-    always @(posedge clk)
-    begin
+    always @(posedge clk) begin
         case (state)
-            IDLE:
-            begin
+            IDLE: begin
                 counter <= 0;
-                if (start)
-                begin
+                if (start) begin
                     remainder_quotient <= {31'd0, dividend_abs, 1'b0};
                     state <= SUBSTRACT;
                 end
-                else
-                begin
+                else begin
                     remainder_quotient <= 0;
                     state <= IDLE;
                 end
             end
-            SUBSTRACT:
-            begin
-                if (remainder_quotient[63:32] >= divisor_abs)
-                begin
+            SUBSTRACT: begin
+                if (remainder_quotient[63:32] >= divisor_abs) begin
                     remainder_quotient[63:32] <= remainder_quotient[63:32] - divisor_abs;
                     set_bit <= 1'b1;
                 end
-                else
-                begin
+                else begin
                     remainder_quotient[63:32] <= remainder_quotient[63:32];
                     set_bit <= 1'b0;
                 end
                 state <= SHIFT;
             end
-            SHIFT:
-            begin
-                if (counter == 31)
-                begin
+            SHIFT: begin
+                if (counter == 31) begin
                     remainder_quotient <= {1'b0, remainder_quotient[62:32], remainder_quotient[30:0], set_bit};
                     state <= FINISH;
                 end
-                else
-                begin
+                else begin
                     remainder_quotient <= {remainder_quotient[62:0], set_bit};
                     state <= SUBSTRACT;
                 end
                 counter <= counter + 1;
             end
-            FINISH:
-            begin
+            FINISH: begin
                 state <= IDLE;
             end
         endcase
