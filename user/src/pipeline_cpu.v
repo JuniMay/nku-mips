@@ -138,6 +138,12 @@ module pipeline_cpu(  // 多周期cpu
     reg [168:0] ID_EXE_bus_r;
     reg [153:0] EXE_MEM_bus_r;
     reg [117:0] MEM_WB_bus_r;
+
+    wire [31:0] EXE_bypass_value;
+    wire        EXE_bypass_valid;
+    
+    wire [31:0] MEM_bypass_value;
+    wire        MEM_bypass_valid;
     
     //IF到ID的锁存信号
     always @(posedge clk)
@@ -233,8 +239,8 @@ module pipeline_cpu(  // 多周期cpu
     decode ID_module(               // 译码级
         .ID_valid   (ID_valid   ),  // I, 1
         .IF_ID_bus_r(IF_ID_bus_r),  // I, 64
-        .rs_value   (rs_value   ),  // I, 32
-        .rt_value   (rt_value   ),  // I, 32
+        .rs_value_in(rs_value   ),  // I, 32
+        .rt_value_in(rt_value   ),  // I, 32
         .rs         (rs         ),  // O, 5
         .rt         (rt         ),  // O, 5
         .jbr_bus    (jbr_bus    ),  // O, 33
@@ -247,6 +253,14 @@ module pipeline_cpu(  // 多周期cpu
         .EXE_wdest   (EXE_wdest   ),// I, 5
         .MEM_wdest   (MEM_wdest   ),// I, 5
         .WB_wdest    (WB_wdest    ),// I, 5
+
+        .EXE_over        (EXE_over),
+        .EXE_bypass_valid(EXE_bypass_valid),
+        .EXE_bypass_value(EXE_bypass_value),
+
+        .MEM_over        (MEM_over),
+        .MEM_bypass_valid(MEM_bypass_valid),
+        .MEM_bypass_value(MEM_bypass_value),
         
         //展示PC
         .ID_pc       (ID_pc       ) // O, 32
@@ -261,7 +275,10 @@ module pipeline_cpu(  // 多周期cpu
         //5级流水新增
         .clk         (clk         ),  // I, 1
         .EXE_wdest   (EXE_wdest   ),  // O, 5
-        
+
+        .EXE_bypass_valid(EXE_bypass_valid),
+        .EXE_bypass_value(EXE_bypass_value),
+
         //展示PC
         .EXE_pc      (EXE_pc      )   // O, 32
     );
@@ -280,6 +297,9 @@ module pipeline_cpu(  // 多周期cpu
         //5级流水新增接口
         .MEM_allow_in (MEM_allow_in ),  // I, 1
         .MEM_wdest    (MEM_wdest    ),  // O, 5
+
+        .MEM_bypass_valid(MEM_bypass_valid),
+        .MEM_bypass_value(MEM_bypass_value),
         
         //展示PC
         .MEM_pc       (MEM_pc       )   // O, 32

@@ -8,8 +8,8 @@
 module decode(                      // 译码级
     input              ID_valid,    // 译码级有效信号
     input      [ 63:0] IF_ID_bus_r, // IF->ID总线
-    input      [ 31:0] rs_value,    // 第一源操作数值
-    input      [ 31:0] rt_value,    // 第二源操作数值
+    input      [ 31:0] rs_value_in, // 第一源操作数值
+    input      [ 31:0] rt_value_in, // 第二源操作数值
     output     [  4:0] rs,          // 第一源操作数地址 
     output     [  4:0] rt,          // 第二源操作数地址
     output     [ 32:0] jbr_bus,     // 跳转总线
@@ -22,6 +22,14 @@ module decode(                      // 译码级
     input      [  4:0] EXE_wdest,   // EXE级要写回寄存器堆的目标地址号
     input      [  4:0] MEM_wdest,   // MEM级要写回寄存器堆的目标地址号
     input      [  4:0] WB_wdest,    // WB级要写回寄存器堆的目标地址号
+
+    input        EXE_over,
+    input [31:0] EXE_bypass_value,
+    input        EXE_bypass_valid,
+
+    input        MEM_over,
+    input [31:0] MEM_bypass_value,
+    input        MEM_bypass_valid,
     
     //展示PC
     output     [ 31:0] ID_pc
@@ -199,6 +207,9 @@ module decode(                      // 译码级
                       | inst_SYSCALL;
 //-----{指令译码}end
 
+    wire [31:0] rs_value;
+    wire [31:0] rt_value;
+
 //-----{分支指令执行}begin
    //bd_pc,分支跳转指令参与计算的为延迟槽指令的PC值，即当前分支指令的PC+4
     wire [31:0] bd_pc;   //延迟槽指令PC值
@@ -244,10 +255,31 @@ module decode(                      // 译码级
     //由于是流水的，存在数据相关
     wire rs_wait;
     wire rt_wait;
+
+    wire EXE_rs_bypass_enabled;
+    wire EXE_rt_bypass_enabled;
+
+    wire MEM_rs_bypass_enabled;
+    wire MEM_rt_bypass_enabled;
+
     assign rs_wait = ~inst_no_rs & (rs!=5'd0)
-                   & ( (rs==EXE_wdest) | (rs==MEM_wdest) | (rs==WB_wdest) );
+                   & ( (rs==EXE_wdest & ~EXE_over & ~EXE_bypass_valid) 
+                     | (rs==MEM_wdest & ~MEM_over & ~MEM_bypass_valid) | (rs==WB_wdest) );
+
     assign rt_wait = ~inst_no_rt & (rt!=5'd0)
-                   & ( (rt==EXE_wdest) | (rt==MEM_wdest) | (rt==WB_wdest) );
+                   & ( (rt==EXE_wdest & ~EXE_over & ~EXE_bypass_valid)
+                     | (rt==MEM_wdest & ~MEM_over & ~MEM_bypass_valid) | (rt==WB_wdest) );
+    
+    assign EXE_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == EXE_wdest);
+    assign EXE_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == EXE_wdest);
+
+    assign MEM_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == MEM_wdest);
+    assign MEM_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == MEM_wdest);
+
+    assign rs_value = EXE_rs_bypass_enabled ? EXE_bypass_value :
+                      MEM_rs_bypass_enabled ? MEM_bypass_value : rs_value_in;
+    assign rt_value = EXE_rt_bypass_enabled ? EXE_bypass_value : 
+                      MEM_rt_bypass_enabled ? MEM_bypass_value : rt_value_in;
     
     //对于分支跳转指令，只有在IF执行完成后，才可以算ID完成；
     //否则，ID级先完成了，而IF还在取指令，则next_pc不能锁存到PC里去，

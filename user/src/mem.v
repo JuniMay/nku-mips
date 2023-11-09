@@ -19,6 +19,9 @@ module mem(                          // 访存级
     //5级流水新增接口
     input              MEM_allow_in, // MEM级允许下级进入
     output     [  4:0] MEM_wdest,    // MEM级要写回寄存器堆的目标地址号
+
+    output        MEM_bypass_valid,
+    output [31:0] MEM_bypass_value,
      
     //展示PC
     output     [ 31:0] MEM_pc
@@ -173,6 +176,9 @@ module mem(                          // 访存级
                          mtc0,mfc0,cp0r_addr,syscall,eret,  // WB需要使用的信号,新增
                          pc};                               // PC值
 //-----{MEM->WB总线}begin
+
+    assign MEM_bypass_valid = inst_load;
+    assign MEM_bypass_value = load_result;
 
 //-----{展示MEM模块的PC值}begin
     assign MEM_pc = pc;

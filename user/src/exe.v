@@ -14,6 +14,9 @@ module exe(                         // 执行级
      //5级流水新增
      input             clk,       // 时钟
      output     [  4:0] EXE_wdest,   // EXE级要写回寄存器堆的目标地址号
+
+    output [31:0] EXE_bypass_value,
+    output        EXE_bypass_valid,
  
     //展示PC
     output     [ 31:0] EXE_pc
@@ -141,6 +144,9 @@ module exe(                         // 执行级
                         multiply ? product[31:0] : div_quotient;
     assign hi_write   = multiply | mthi | divide;
     assign lo_write   = multiply | mtlo | divide;
+
+    assign EXE_bypass_valid = (|alu_control);
+    assign EXE_bypass_value = alu_result;
     
     assign EXE_MEM_bus = {mem_control,store_data,          //load/store信息和store数据
                           exe_result,                      //exe运算结果
