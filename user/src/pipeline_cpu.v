@@ -82,6 +82,27 @@ module pipeline_cpu(  // 多周期cpu
             ID_valid <= IF_over;
         end
     end
+
+
+    wire [31:0] EXE_bypass_value;
+    wire        EXE_bypass_valid_out;
+    wire        EXE_bypass_valid_in;
+
+    reg [31:0] EXE_bypass_value_r;
+    reg        EXE_bypass_valid_r;
+    reg [ 4:0] EXE_bypass_wdest_r;
+
+    assign EXE_bypass_valid_in = EXE_bypass_valid_r & MEM_valid;
+
+    wire [31:0] MEM_bypass_value;
+    wire        MEM_bypass_valid_out;
+    wire        MEM_bypass_valid_in;
+
+    reg [31:0] MEM_bypass_value_r;
+    reg        MEM_bypass_valid_r;
+    reg [ 4:0] MEM_bypass_wdest_r;
+
+    assign MEM_bypass_valid_in = MEM_bypass_valid_r & WB_valid;
     
     //EXE_valid
     always @(posedge clk)
@@ -106,6 +127,9 @@ module pipeline_cpu(  // 多周期cpu
         else if (MEM_allow_in)
         begin
             MEM_valid <= EXE_over;
+            EXE_bypass_wdest_r <= EXE_wdest;
+            EXE_bypass_valid_r <= EXE_bypass_valid_out;
+            EXE_bypass_value_r <= EXE_bypass_value;
         end
     end
     
@@ -119,6 +143,9 @@ module pipeline_cpu(  // 多周期cpu
         else if (WB_allow_in)
         begin
             WB_valid <= MEM_over;
+            MEM_bypass_wdest_r <= MEM_wdest;
+            MEM_bypass_valid_r <= MEM_bypass_valid_out;
+            MEM_bypass_value_r <= MEM_bypass_value;
         end
     end
     
@@ -138,18 +165,6 @@ module pipeline_cpu(  // 多周期cpu
     reg [168:0] ID_EXE_bus_r;
     reg [153:0] EXE_MEM_bus_r;
     reg [117:0] MEM_WB_bus_r;
-
-    wire [31:0] EXE_bypass_value;
-    wire        EXE_bypass_valid_out;
-    wire        EXE_bypass_valid_in;
-
-    assign EXE_bypass_valid_in = EXE_bypass_valid_out & MEM_valid;
-
-    wire [31:0] MEM_bypass_value;
-    wire        MEM_bypass_valid_out;
-    wire        MEM_bypass_valid_in;
-
-    assign MEM_bypass_valid_in = MEM_bypass_valid_out & WB_valid;
     
     //IF到ID的锁存信号
     always @(posedge clk)
@@ -260,13 +275,13 @@ module pipeline_cpu(  // 多周期cpu
         .MEM_wdest   (MEM_wdest   ),// I, 5
         .WB_wdest    (WB_wdest    ),// I, 5
 
-        .EXE_over        (EXE_over),
+        .EXE_bypass_wdest(EXE_bypass_wdest_r),
         .EXE_bypass_valid(EXE_bypass_valid_in),
-        .EXE_bypass_value(EXE_bypass_value),
+        .EXE_bypass_value(EXE_bypass_value_r),
 
-        .MEM_over        (MEM_over),
+        .MEM_bypass_wdest(MEM_bypass_wdest_r),
         .MEM_bypass_valid(MEM_bypass_valid_in),
-        .MEM_bypass_value(MEM_bypass_value),
+        .MEM_bypass_value(MEM_bypass_value_r),
         
         //展示PC
         .ID_pc       (ID_pc       ) // O, 32

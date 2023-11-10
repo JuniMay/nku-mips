@@ -145,7 +145,7 @@ module exe(                         // 执行级
     assign hi_write   = multiply | mthi | divide;
     assign lo_write   = multiply | mtlo | divide;
 
-    assign EXE_bypass_valid = (|alu_control);
+    assign EXE_bypass_valid = (|alu_control) & ~(|mem_control);
     assign EXE_bypass_value = alu_result;
     
     assign EXE_MEM_bus = {mem_control,store_data,          //load/store信息和store数据

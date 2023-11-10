@@ -23,11 +23,11 @@ module decode(                      // 译码级
     input      [  4:0] MEM_wdest,   // MEM级要写回寄存器堆的目标地址号
     input      [  4:0] WB_wdest,    // WB级要写回寄存器堆的目标地址号
 
-    input        EXE_over,
+    input [ 4:0] EXE_bypass_wdest,
     input [31:0] EXE_bypass_value,
     input        EXE_bypass_valid,
 
-    input        MEM_over,
+    input [ 4:0] MEM_bypass_wdest,
     input [31:0] MEM_bypass_value,
     input        MEM_bypass_valid,
     
@@ -263,18 +263,20 @@ module decode(                      // 译码级
     wire MEM_rt_bypass_enabled;
 
     assign rs_wait = ~inst_no_rs & (rs!=5'd0)
-                   & ( (rs==EXE_wdest & ~EXE_over & ~EXE_bypass_valid) 
-                     | (rs==MEM_wdest & ~MEM_over & ~MEM_bypass_valid) | (rs==WB_wdest) );
+                   & ( (rs==EXE_wdest) | (rs==MEM_wdest) | (rs==WB_wdest) )
+                   & ( ~EXE_rs_bypass_enabled | ~EXE_bypass_valid )
+                   & ( ~MEM_rs_bypass_enabled | ~MEM_bypass_valid );
 
     assign rt_wait = ~inst_no_rt & (rt!=5'd0)
-                   & ( (rt==EXE_wdest & ~EXE_over & ~EXE_bypass_valid)
-                     | (rt==MEM_wdest & ~MEM_over & ~MEM_bypass_valid) | (rt==WB_wdest) );
+                   & ( (rt==EXE_wdest) | (rt==MEM_wdest) | (rt==WB_wdest) )
+                   & ( ~EXE_rt_bypass_enabled | ~EXE_bypass_valid )
+                   & ( ~MEM_rt_bypass_enabled | ~MEM_bypass_valid );
     
-    assign EXE_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == EXE_wdest);
-    assign EXE_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == EXE_wdest);
+    assign EXE_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == EXE_bypass_wdest);
+    assign EXE_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == EXE_bypass_wdest);
 
-    assign MEM_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == MEM_wdest);
-    assign MEM_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == MEM_wdest);
+    assign MEM_rs_bypass_enabled = ~inst_no_rs & (rs != 5'd0) & (rs == MEM_bypass_wdest);
+    assign MEM_rt_bypass_enabled = ~inst_no_rt & (rt != 5'd0) & (rt == MEM_bypass_wdest);
 
     assign rs_value = EXE_rs_bypass_enabled ? EXE_bypass_value :
                       MEM_rs_bypass_enabled ? MEM_bypass_value : rs_value_in;
