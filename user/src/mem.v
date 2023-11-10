@@ -177,8 +177,8 @@ module mem(                          // 访存级
                          pc};                               // PC值
 //-----{MEM->WB总线}begin
 
-    assign MEM_bypass_valid = inst_load;
-    assign MEM_bypass_value = load_result;
+    assign MEM_bypass_valid = 1'b1;
+    assign MEM_bypass_value = mem_result;
 
 //-----{展示MEM模块的PC值}begin
     assign MEM_pc = pc;
